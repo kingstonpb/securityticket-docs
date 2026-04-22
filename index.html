@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="layout">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">ST</div>
         <div>
@@ -17,7 +17,7 @@
         </div>
       </div>
 
-      <nav>
+      <nav id="sidebar-nav">
         <a href="#overview">Overview</a>
         <a href="#quickstart">Quickstart</a>
         <a href="#authentication">Authentication</a>
@@ -39,10 +39,11 @@
     </aside>
 
     <main class="content">
+      <button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar-nav">Menu</button>
       <header class="hero" id="overview">
         <div>
-          <span class="eyebrow">API Documentation</span>
-          <h2>Process Security Issue Tickets from External Systems</h2>
+          <span class="eyebrow">API documentation sample</span>
+          <h2>Process security issue tickets from external systems</h2>
           <p>
             The <strong>SecurityTicketRequestProcessor API</strong> accepts reports from third-party scanners,
             bug bounty platforms, CI pipelines, and partner tools, then creates and manages tickets inside
