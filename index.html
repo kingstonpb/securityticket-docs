@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurityTicketRequestProcessor Developer Portal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">ST</div>
+        <div>
+          <h1>SecurityTicketRequestProcessor</h1>
+          <p>Developer Portal</p>
+        </div>
+      </div>
+
+      <nav>
+        <a href="#overview">Overview</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#authentication">Authentication</a>
+        <a href="#conventions">Conventions</a>
+        <a href="#tickets">Tickets API</a>
+        <a href="#comments">Comments API</a>
+        <a href="#attachments">Attachments API</a>
+        <a href="#bulk">Bulk Operations</a>
+        <a href="#audit">Audit Events</a>
+        <a href="#webhooks">Webhooks</a>
+        <a href="#errors">Errors</a>
+        <a href="#limits">Rate Limits</a>
+        <a href="#changelog">Changelog</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a class="button secondary" href="openapi.yaml">Download OpenAPI spec</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="hero" id="overview">
+        <div>
+          <span class="eyebrow">Fictional portfolio documentation</span>
+          <h2>Process security issue tickets from external systems</h2>
+          <p>
+            The <strong>SecurityTicketRequestProcessor API</strong> accepts reports from third-party scanners,
+            bug bounty platforms, CI pipelines, and partner tools, then creates and manages tickets inside
+            <strong>Security Tickets</strong>.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#quickstart">Get started</a>
+            <a class="button secondary" href="openapi.yaml">View OpenAPI YAML</a>
+          </div>
+        </div>
+        <div class="card code-card">
+<pre><code>Base URL
+https://api.securitytickets.example.com/v1
+
+Sandbox URL
+https://sandbox.securitytickets.example.com/v1</code></pre>
+        </div>
+      </header>
+
+      <section class="grid two-up" id="quickstart">
+        <article class="card">
+          <h3>What you can do</h3>
+          <ul>
+            <li>Create, update, list, and delete security tickets</li>
+            <li>Add comments, evidence, and attachments</li>
+            <li>Run bulk updates across multiple tickets</li>
+            <li>Subscribe to webhook events for ticket lifecycle changes</li>
+            <li>Track audit events for compliance and reporting</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Quickstart request</h3>
+<pre><code>curl --request POST \
+  --url https://sandbox.securitytickets.example.com/v1/tickets \
+  --header 'Authorization: Bearer &lt;access_token&gt;' \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: 5f7c6f2d-60c4-43b8-a2af-9c1da1bda111' \
+  --data '{
+    "title": "SQL injection in login endpoint",
+    "description": "Unsanitised input reaches the auth query.",
+    "severity": "high",
+    "source": "partner_scanner",
+    "reporter": {
+      "name": "Acme Security Scanner",
+      "external_reference": "scan-49302"
+    }
+  }'</code></pre>
+        </article>
+      </section>
+
+      <section id="authentication">
+        <h2>Authentication</h2>
+        <div class="card">
+          <p>
+            The API uses <strong>OAuth 2.0 Client Credentials</strong>. Each integration receives a client ID and client secret.
+            Exchange these for a short-lived bearer token.
+          </p>
+          <h3>Token endpoint</h3>
+          <p><code>POST /oauth2/token</code></p>
+<pre><code>curl --request POST \
+  --url https://auth.securitytickets.example.com/oauth2/token \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'grant_type=client_credentials&amp;client_id=st_client_123&amp;client_secret=st_secret_456&amp;scope=tickets:write tickets:read webhooks:read'</code></pre>
+          <h3>Response</h3>
+<pre><code>{
+  "access_token": "eyJhbGciOi...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "tickets:write tickets:read webhooks:read"
+}</code></pre>
+          <h3>Scopes</h3>
+          <table>
+            <thead>
+              <tr><th>Scope</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>tickets:read</code></td><td>Read ticket data and ticket-related resources</td></tr>
+              <tr><td><code>tickets:write</code></td><td>Create, update, and delete tickets</td></tr>
+              <tr><td><code>comments:write</code></td><td>Create and delete comments</td></tr>
+              <tr><td><code>attachments:write</code></td><td>Upload or remove attachments</td></tr>
+              <tr><td><code>bulk:write</code></td><td>Perform bulk actions</td></tr>
+              <tr><td><code>webhooks:read</code></td><td>View webhook delivery and subscription metadata</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="conventions">
+        <h2>Request and response conventions</h2>
+        <div class="grid two-up">
+          <article class="card">
+            <h3>Headers</h3>
+            <ul>
+              <li><code>Authorization: Bearer &lt;token&gt;</code></li>
+              <li><code>Content-Type: application/json</code></li>
+              <li><code>Accept: application/json</code></li>
+              <li><code>Idempotency-Key</code> required for <code>POST /tickets</code> and bulk write operations</li>
+              <li><code>X-Correlation-ID</code> optional for tracing across systems</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Pagination</h3>
+            <p>Collection endpoints use cursor pagination.</p>
+<pre><code>GET /tickets?limit=2&amp;after=cur_01J93Y6Q5K6M3
+
+{
+  "data": [...],
+  "page": {
+    "next_cursor": "cur_01J93Y7WQF8K9",
+    "previous_cursor": "cur_01J93Y4BMT1QA",
+    "has_more": true,
+    "limit": 2
+  }
+}</code></pre>
+          </article>
+        </div>
+      </section>
+
+      <section id="tickets">
+        <h2>Tickets API</h2>
+
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method post">POST</span><code>/tickets</code></div>
+          <p>Create a new security ticket.</p>
+          <h4>Request body</h4>
+<pre><code>{
+  "title": "Authentication bypass via debug flag",
+  "description": "The debug=true query parameter bypasses MFA in staging-like environments.",
+  "severity": "critical",
+  "priority": "p1",
+  "category": "authentication",
+  "source": "bug_bounty_platform",
+  "affected_product": "customer-portal",
+  "affected_versions": ["4.9.1", "4.9.2"],
+  "reporter": {
+    "name": "Northwind Security Research",
+    "email": "alerts@northwind.example",
+    "external_reference": "bb-11402"
+  },
+  "metadata": {
+    "environment": "production",
+    "scanner_confidence": "high"
+  }
+}</code></pre>
+          <h4>201 Created</h4>
+<pre><code>{
+  "id": "tkt_01J93YT9A6V2T4X5J2S9GQ6KWR",
+  "title": "Authentication bypass via debug flag",
+  "status": "open",
+  "severity": "critical",
+  "priority": "p1",
+  "created_at": "2026-04-22T09:12:44Z",
+  "updated_at": "2026-04-22T09:12:44Z",
+  "links": {
+    "self": "/v1/tickets/tkt_01J93YT9A6V2T4X5J2S9GQ6KWR",
+    "comments": "/v1/tickets/tkt_01J93YT9A6V2T4X5J2S9GQ6KWR/comments",
+    "attachments": "/v1/tickets/tkt_01J93YT9A6V2T4X5J2S9GQ6KWR/attachments"
+  }
+}</code></pre>
+        </article>
+
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method get">GET</span><code>/tickets/{ticket_id}</code></div>
+          <p>Retrieve a single ticket, including assignment and workflow details.</p>
+        </article>
+
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method get">GET</span><code>/tickets</code></div>
+          <p>List tickets with filtering, sorting, and cursor pagination.</p>
+          <h4>Query parameters</h4>
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>status</code></td><td>string</td><td>Filter by <code>open</code>, <code>triaged</code>, <code>in_progress</code>, <code>resolved</code>, or <code>closed</code></td></tr>
+              <tr><td><code>severity</code></td><td>string</td><td>Filter by <code>low</code>, <code>medium</code>, <code>high</code>, <code>critical</code></td></tr>
+              <tr><td><code>source</code></td><td>string</td><td>Filter by reporting system</td></tr>
+              <tr><td><code>updated_after</code></td><td>datetime</td><td>ISO 8601 timestamp</td></tr>
+              <tr><td><code>limit</code></td><td>integer</td><td>1–100, default 25</td></tr>
+              <tr><td><code>after</code></td><td>string</td><td>Cursor for next page</td></tr>
+              <tr><td><code>sort</code></td><td>string</td><td><code>created_at</code>, <code>-created_at</code>, <code>severity</code>, <code>-updated_at</code></td></tr>
+            </tbody>
+          </table>
+          <h4>Example</h4>
+<pre><code>GET /tickets?status=open&amp;severity=high&amp;limit=2&amp;sort=-updated_at</code></pre>
+        </article>
+
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method patch">PATCH</span><code>/tickets/{ticket_id}</code></div>
+          <p>Partially update mutable fields on an existing ticket.</p>
+<pre><code>{
+  "status": "in_progress",
+  "assigned_team": "application-security",
+  "priority": "p2"
+}</code></pre>
+        </article>
+
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method delete">DELETE</span><code>/tickets/{ticket_id}</code></div>
+          <p>Delete a ticket. This performs a soft delete and returns <code>204 No Content</code>.</p>
+        </article>
+      </section>
+
+      <section id="comments">
+        <h2>Comments API</h2>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method get">GET</span><code>/tickets/{ticket_id}/comments</code></div>
+          <p>List comments for a ticket.</p>
+        </article>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method post">POST</span><code>/tickets/{ticket_id}/comments</code></div>
+          <p>Add an internal or external comment.</p>
+<pre><code>{
+  "body": "The owning team has confirmed the issue and deployed a mitigation.",
+  "visibility": "internal"
+}</code></pre>
+        </article>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method delete">DELETE</span><code>/tickets/{ticket_id}/comments/{comment_id}</code></div>
+          <p>Delete a comment by ID.</p>
+        </article>
+      </section>
+
+      <section id="attachments">
+        <h2>Attachments API</h2>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method post">POST</span><code>/tickets/{ticket_id}/attachments</code></div>
+          <p>Attach supporting evidence such as logs, screenshots, or proof-of-concept files.</p>
+<pre><code>{
+  "filename": "repro-steps.txt",
+  "content_type": "text/plain",
+  "content_base64": "U3RlcCAxOiBPcGVuIC9sb2dpbi4uLg=="
+}</code></pre>
+        </article>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method get">GET</span><code>/tickets/{ticket_id}/attachments</code></div>
+          <p>List attachment metadata for a ticket.</p>
+        </article>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method delete">DELETE</span><code>/tickets/{ticket_id}/attachments/{attachment_id}</code></div>
+          <p>Delete an attachment.</p>
+        </article>
+      </section>
+
+      <section id="bulk">
+        <h2>Bulk operations</h2>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method post">POST</span><code>/bulk/tickets/update</code></div>
+          <p>Apply the same update to multiple tickets in a single request.</p>
+<pre><code>{
+  "ticket_ids": [
+    "tkt_01J93YT9A6V2T4X5J2S9GQ6KWR",
+    "tkt_01J93YV57RHSPM1KQ3W4EZ2NRD"
+  ],
+  "changes": {
+    "status": "triaged",
+    "assigned_team": "psirt"
+  }
+}</code></pre>
+          <p>Bulk writes are asynchronous. The API returns <code>202 Accepted</code> and a job resource.</p>
+        </article>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method get">GET</span><code>/bulk/jobs/{job_id}</code></div>
+          <p>Retrieve status for a bulk operation, including per-ticket results.</p>
+        </article>
+      </section>
+
+      <section id="audit">
+        <h2>Audit events</h2>
+        <article class="endpoint card">
+          <div class="endpoint-head"><span class="method get">GET</span><code>/audit-events</code></div>
+          <p>List auditable actions across tickets, comments, attachments, and webhook administration.</p>
+<pre><code>GET /audit-events?resource_type=ticket&amp;resource_id=tkt_01J93YT9A6V2T4X5J2S9GQ6KWR&amp;limit=50</code></pre>
+        </article>
+      </section>
+
+      <section id="webhooks">
+        <h2>Webhooks</h2>
+        <div class="card">
+          <p>
+            Webhooks let your system receive near real-time notifications when ticket state changes occur.
+            Configure webhook destinations in the Security Tickets admin console.
+          </p>
+          <h3>Supported events</h3>
+          <ul>
+            <li><code>ticket.created</code></li>
+            <li><code>ticket.updated</code></li>
+            <li><code>ticket.deleted</code></li>
+            <li><code>ticket.comment.created</code></li>
+            <li><code>ticket.attachment.created</code></li>
+            <li><code>bulk.job.completed</code></li>
+          </ul>
+          <h3>Delivery headers</h3>
+          <ul>
+            <li><code>X-ST-Event</code>: Event name</li>
+            <li><code>X-ST-Delivery-ID</code>: Unique delivery identifier</li>
+            <li><code>X-ST-Signature-256</code>: HMAC SHA-256 signature</li>
+            <li><code>X-ST-Timestamp</code>: Unix timestamp for replay protection</li>
+          </ul>
+          <h3>Example payload</h3>
+<pre><code>{
+  "id": "evt_01J940MBCG8JVD9Y6VB4T0ZZYQ",
+  "type": "ticket.updated",
+  "created_at": "2026-04-22T11:01:02Z",
+  "data": {
+    "ticket_id": "tkt_01J93YT9A6V2T4X5J2S9GQ6KWR",
+    "status": "resolved",
+    "severity": "critical",
+    "updated_by": "system"
+  }
+}</code></pre>
+          <h3>Signature verification</h3>
+<pre><code>signed_payload = timestamp + "." + raw_request_body
+expected_signature = HMAC_SHA256(webhook_secret, signed_payload)</code></pre>
+          <p>Return any <code>2xx</code> status code to acknowledge receipt. Failed deliveries are retried with exponential backoff for up to 24 hours.</p>
+        </div>
+      </section>
+
+      <section id="errors">
+        <h2>Error handling</h2>
+        <div class="grid two-up">
+          <article class="card">
+            <h3>Error shape</h3>
+<pre><code>{
+  "error": {
+    "code": "validation_error",
+    "message": "severity must be one of: low, medium, high, critical",
+    "request_id": "req_01J940Y0K1N0Y1XK2QZ8J4D3YB",
+    "details": [
+      {
+        "field": "severity",
+        "issue": "invalid_enum_value"
+      }
+    ]
+  }
+}</code></pre>
+          </article>
+          <article class="card">
+            <h3>Common status codes</h3>
+            <table>
+              <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><code>400</code></td><td>Malformed request</td></tr>
+                <tr><td><code>401</code></td><td>Missing or invalid token</td></tr>
+                <tr><td><code>403</code></td><td>Valid token, insufficient scope</td></tr>
+                <tr><td><code>404</code></td><td>Requested resource not found</td></tr>
+                <tr><td><code>409</code></td><td>Conflict, often due to idempotency reuse with different payload</td></tr>
+                <tr><td><code>422</code></td><td>Validation failed</td></tr>
+                <tr><td><code>429</code></td><td>Rate limit exceeded</td></tr>
+                <tr><td><code>500</code></td><td>Unexpected server error</td></tr>
+              </tbody>
+            </table>
+          </article>
+        </div>
+      </section>
+
+      <section id="limits">
+        <h2>Rate limits and idempotency</h2>
+        <div class="grid two-up">
+          <article class="card">
+            <h3>Rate limits</h3>
+            <ul>
+              <li>Default: 1,000 requests per hour per client</li>
+              <li>Burst: 60 requests per minute</li>
+              <li>Bulk endpoints: 100 requests per hour</li>
+            </ul>
+            <p>Responses include:</p>
+            <ul>
+              <li><code>X-RateLimit-Limit</code></li>
+              <li><code>X-RateLimit-Remaining</code></li>
+              <li><code>X-RateLimit-Reset</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Idempotency</h3>
+            <p>
+              To prevent duplicate ticket creation, send a unique <code>Idempotency-Key</code> header with write requests.
+              Keys are retained for 24 hours.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="changelog">
+        <h2>Versioning and changelog</h2>
+        <div class="card">
+          <p>The API is versioned in the URL, for example <code>/v1</code>.</p>
+          <table>
+            <thead><tr><th>Version</th><th>Status</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>v1</code></td><td>Current</td><td>Initial public version with tickets, comments, attachments, bulk jobs, and webhooks</td></tr>
+              <tr><td><code>v0</code></td><td>Deprecated</td><td>Internal beta used for early partner testing</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
